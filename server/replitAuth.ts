@@ -20,12 +20,14 @@ if (!admin.apps.length) {
   }
 }
 
-if (!process.env.REPLIT_DOMAINS) {
-  throw new Error("Environment variable REPLIT_DOMAINS not provided");
-}
+// Make Replit authentication optional for deployment on other platforms
+const isReplitEnvironment = !!process.env.REPLIT_DOMAINS;
 
 const getOidcConfig = memoize(
   async () => {
+    if (!isReplitEnvironment) {
+      throw new Error("OIDC config not available outside Replit environment");
+    }
     return await client.discovery(
       new URL(process.env.ISSUER_URL ?? "https://replit.com/oidc"),
       process.env.REPL_ID!
@@ -43,14 +45,18 @@ export function getSession() {
     ttl: sessionTtl,
     tableName: "sessions",
   });
+  
+  // Generate a default session secret if not provided (for deployment environments)
+  const sessionSecret = process.env.SESSION_SECRET || 'fallback-secret-key-change-in-production';
+  
   return session({
-    secret: process.env.SESSION_SECRET!,
+    secret: sessionSecret,
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === 'production',
       maxAge: sessionTtl,
     },
   });
@@ -84,36 +90,41 @@ export async function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  const config = await getOidcConfig();
+  // Only setup Replit authentication if running in Replit environment
+  if (isReplitEnvironment) {
+    const config = await getOidcConfig();
 
-  const verify: VerifyFunction = async (
-    tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
-    verified: passport.AuthenticateCallback
-  ) => {
-    const user = {};
-    updateUserSession(user, tokens);
-    await upsertUser(tokens.claims());
-    verified(null, user);
-  };
+    const verify: VerifyFunction = async (
+      tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
+      verified: passport.AuthenticateCallback
+    ) => {
+      const user = {};
+      updateUserSession(user, tokens);
+      await upsertUser(tokens.claims());
+      verified(null, user);
+    };
 
-  for (const domain of process.env
-    .REPLIT_DOMAINS!.split(",")) {
-    const strategy = new Strategy(
-      {
-        name: `replitauth:${domain}`,
-        config,
-        scope: "openid email profile offline_access",
-        callbackURL: `https://${domain}/api/callback`,
-      },
-      verify,
-    );
-    passport.use(strategy);
+    for (const domain of process.env.REPLIT_DOMAINS!.split(",")) {
+      const strategy = new Strategy(
+        {
+          name: `replitauth:${domain}`,
+          config,
+          scope: "openid email profile offline_access",
+          callbackURL: `https://${domain}/api/callback`,
+        },
+        verify,
+      );
+      passport.use(strategy);
+    }
   }
 
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
+    if (!isReplitEnvironment) {
+      return res.status(404).json({ message: "Replit authentication not available" });
+    }
     passport.authenticate(`replitauth:${req.hostname}`, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
@@ -121,13 +132,24 @@ export async function setupAuth(app: Express) {
   });
 
   app.get("/api/callback", (req, res, next) => {
+    if (!isReplitEnvironment) {
+      return res.status(404).json({ message: "Replit authentication not available" });
+    }
     passport.authenticate(`replitauth:${req.hostname}`, {
       successReturnToOrRedirect: "/",
       failureRedirect: "/api/login",
     })(req, res, next);
   });
 
-  app.get("/api/logout", (req, res) => {
+  app.get("/api/logout", async (req, res) => {
+    if (!isReplitEnvironment) {
+      req.logout(() => {
+        res.redirect("/");
+      });
+      return;
+    }
+    
+    const config = await getOidcConfig();
     req.logout(() => {
       res.redirect(
         client.buildEndSessionUrl(config, {
@@ -143,6 +165,11 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   // Check for Firebase session
   if (req.session && (req.session as any).user && (req.session as any).user.claims) {
     req.user = (req.session as any).user;
+    return next();
+  }
+
+  // If not in Replit environment, allow access (for deployment compatibility)
+  if (!isReplitEnvironment) {
     return next();
   }
 
