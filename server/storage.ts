@@ -104,7 +104,7 @@ export class DatabaseStorage implements IStorage {
       updatedAt: userData.updatedAt
     };
 
-    if (userData.email === 'mohitsindhu121@gmail.com') {
+    if (userData.email === 'gamerzmgrgm@gmail.com') {
       insertData.role = 'owner';
       insertData.permissions = [
         'edit_code', 
