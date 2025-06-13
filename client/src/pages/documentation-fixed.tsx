@@ -32,7 +32,7 @@ export default function Documentation() {
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <Shield className="h-8 w-8 phantom-text mr-3" />
-              <span className="text-xl font-bold text-foreground">Phantom Auth</span>
+              <span className="text-xl font-bold text-foreground">Nation Auth</span>
             </div>
             <div className="flex items-center space-x-4">
               <Link href="/">
@@ -71,7 +71,7 @@ export default function Documentation() {
               Documentation
             </h1>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              Complete integration guide for Phantom Auth API. Learn how to implement secure authentication in your C# WinForms applications with HWID locking, version control, and blacklist management.
+              Complete integration guide for Nation Auth API. Learn how to implement secure authentication in your C# WinForms applications with HWID locking, version control, and blacklist management.
             </p>
           </div>
         </div>
@@ -84,7 +84,7 @@ export default function Documentation() {
               Quick Start Guide
             </CardTitle>
             <CardDescription>
-              Get up and running with Phantom Auth in 5 minutes
+              Get up and running with Nation Auth in 5 minutes
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -778,7 +778,7 @@ public partial class LoginForm : Form
               Advanced Features
             </CardTitle>
             <CardDescription>
-              All authentication features included in Phantom Auth
+              All authentication features included in Nation Auth
             </CardDescription>
           </CardHeader>
           <CardContent>
