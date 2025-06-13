@@ -7,11 +7,11 @@ interface LoadingAnimationProps {
 
 export default function LoadingAnimation({ onComplete }: LoadingAnimationProps) {
   const [progress, setProgress] = useState(0);
-  const [loadingText, setLoadingText] = useState("Initializing Phantom Auth");
+  const [loadingText, setLoadingText] = useState("Initializing Nation Auth");
   const [isVisible, setIsVisible] = useState(true);
 
   const loadingSteps = [
-    "Initializing Phantom Auth",
+    "Initializing Nation Auth",
     "Loading Security Protocols",
     "Establishing Secure Connection",
     "Authenticating Systems",
@@ -106,7 +106,7 @@ export default function LoadingAnimation({ onComplete }: LoadingAnimationProps) 
 
         {/* Title */}
         <h1 className="text-3xl font-bold text-foreground mb-2 animate-fade-in">
-          Phantom Auth
+          Nation Auth
         </h1>
         
         {/* Subtitle */}
