@@ -35,7 +35,7 @@ export default function Home() {
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <Shield className="h-8 w-8 phantom-text mr-3" />
-              <span className="text-xl font-bold text-foreground">Phantom Auth</span>
+              <span className="text-xl font-bold text-foreground">Nation Auth</span>
             </div>
             <div className="flex items-center space-x-4">
               <Link href="/dashboard">
@@ -70,7 +70,7 @@ export default function Home() {
                 Welcome back, {user?.firstName || user?.email}
               </h1>
               <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
-                Your Phantom Auth dashboard is ready. Manage your API keys, monitor users, and secure your applications.
+                Your Nation Auth dashboard is ready. Manage your API keys, monitor users, and secure your applications.
               </p>
               <Link href="/dashboard">
                 <Button className="phantom-button px-8 py-4 text-lg">
@@ -214,10 +214,10 @@ export default function Home() {
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center mb-4 md:mb-0">
               <Shield className="h-6 w-6 phantom-text mr-2" />
-              <span className="text-lg font-semibold text-foreground">Phantom Auth</span>
+              <span className="text-lg font-semibold text-foreground">Nation Auth</span>
             </div>
             <div className="text-sm text-muted-foreground">
-              © 2024 Phantom Auth. All rights reserved.
+              © 2024 Nation Auth. All rights reserved.
             </div>
           </div>
         </div>
