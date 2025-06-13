@@ -19,7 +19,7 @@ export default function Hero() {
             <Shield className="h-12 w-12 text-white mr-3" />
             <div className="text-left">
               <h1 className="text-4xl md:text-5xl font-bold text-white">
-                Phantom Auth
+                Nation Auth
               </h1>
               <p className="text-blue-100 font-medium">Professional Authentication</p>
             </div>
