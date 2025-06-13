@@ -122,7 +122,7 @@ export default function Landing() {
             <div className="flex justify-between items-center h-16">
               <div className="flex items-center">
                 <Shield className="h-8 w-8 phantom-text mr-3" />
-                <span className="text-2xl font-bold text-foreground">Phantom Auth</span>
+                <span className="text-2xl font-bold text-foreground">Nation Auth</span>
               </div>
               <div className="flex items-center space-x-4">
                 <Button
@@ -156,7 +156,7 @@ export default function Landing() {
               </div>
               <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-6 animate-fade-in gpu-accelerated">
                 <span className="bg-gradient-to-r from-primary via-primary/80 to-primary bg-clip-text text-transparent animate-gradient">
-                  Phantom Auth
+                  Nation Auth
                 </span>
               </h1>
               <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8 animate-fade-in-delay">
@@ -311,7 +311,7 @@ export default function Landing() {
                 Complete Feature Overview
               </h2>
               <p className="text-xl text-muted-foreground mb-12">
-                Join thousands of developers who trust Phantom Auth for their authentication needs
+                Join thousands of developers who trust Nation Auth for their authentication needs
               </p>
             </div>
 
@@ -355,10 +355,10 @@ export default function Landing() {
             <div className="flex flex-col md:flex-row justify-between items-center">
               <div className="flex items-center mb-4 md:mb-0">
                 <Shield className="h-6 w-6 phantom-text mr-2" />
-                <span className="text-lg font-semibold text-foreground">Phantom Auth</span>
+                <span className="text-lg font-semibold text-foreground">Nation Auth</span>
               </div>
               <div className="text-sm text-muted-foreground">
-                © 2024 Phantom Auth. All rights reserved.
+                © 2024 Nation Auth. All rights reserved.
               </div>
             </div>
           </div>
