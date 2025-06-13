@@ -384,7 +384,7 @@ export default function Dashboard() {
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <Shield className="h-8 w-8 phantom-text mr-3" />
-              <span className="text-xl font-bold text-foreground">Phantom Auth</span>
+              <span className="text-xl font-bold text-foreground">Nation Auth</span>
             </div>
             <div className="flex items-center space-x-4">
               <Link href="/">
