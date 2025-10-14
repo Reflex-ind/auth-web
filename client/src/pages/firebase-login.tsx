@@ -193,7 +193,7 @@ export default function FirebaseLogin() {
         <div className="text-center">
           <Link href="/" className="flex items-center justify-center mb-6">
             <Shield className="h-10 w-10 primary-color mr-3" />
-            <span className="text-2xl font-bold text-gray-900">Phantom Auth</span>
+            <span className="text-2xl font-bold text-gray-900">Nation Auth</span>
           </Link>
           <h2 className="text-3xl font-bold text-gray-900 mb-2">
             Create Your Account
