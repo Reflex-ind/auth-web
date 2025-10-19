@@ -11,6 +11,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 
 // Session storage table for Replit Auth
 export const sessions = pgTable(
@@ -23,21 +24,22 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User storage table for Replit Auth
+// User storage table for Replit Auth + Google OAuth
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().notNull(),
-  email: varchar("email").unique(),
+  email: varchar("email").unique().notNull(), // Made notNull for consistency
+  googleId: varchar("google_id").unique(), // Added for Google OAuth
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   role: varchar("role").notNull().default("user"), // 'owner', 'admin', 'moderator', 'user'
-  permissions: text("permissions").array().notNull().default([]), // Array of specific permissions
+  permissions: text("permissions").array().notNull().default([]),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Applications table - users can create multiple applications
+// Applications table
 export const applications = pgTable("applications", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
@@ -47,7 +49,6 @@ export const applications = pgTable("applications", {
   version: text("version").notNull().default("1.0.0"),
   isActive: boolean("is_active").notNull().default(true),
   hwidLockEnabled: boolean("hwid_lock_enabled").notNull().default(false),
-  // Custom messages for different scenarios
   loginSuccessMessage: text("login_success_message").default("Login successful!"),
   loginFailedMessage: text("login_failed_message").default("Invalid credentials!"),
   accountDisabledMessage: text("account_disabled_message").default("Account is disabled!"),
@@ -58,98 +59,108 @@ export const applications = pgTable("applications", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-// Application users (users created for specific applications with time limits)
-export const appUsers = pgTable("app_users", {
-  id: serial("id").primaryKey(),
-  applicationId: integer("application_id").notNull().references(() => applications.id, { onDelete: "cascade" }),
-  username: text("username").notNull(),
-  password: text("password").notNull(),
-  email: text("email"),
-  isActive: boolean("is_active").notNull().default(true),
-  isPaused: boolean("is_paused").notNull().default(false),
-  hwid: text("hwid"), // Hardware ID for locking
-  expiresAt: timestamp("expires_at"), // Time limit for user validity
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  lastLogin: timestamp("last_login"),
-  loginAttempts: integer("login_attempts").notNull().default(0),
-  lastLoginAttempt: timestamp("last_login_attempt"),
-}, (table) => {
-  return {
+// Application users
+export const appUsers = pgTable(
+  "app_users",
+  {
+    id: serial("id").primaryKey(),
+    applicationId: integer("application_id").notNull().references(() => applications.id, { onDelete: "cascade" }),
+    username: text("username").notNull(),
+    password: text("password").notNull(),
+    email: text("email"),
+    apiKey: text("api_key").notNull(), // Added to match test-login.tsx
+    isActive: boolean("is_active").notNull().default(true),
+    isPaused: boolean("is_paused").notNull().default(false),
+    hwid: text("hwid"),
+    expiresAt: timestamp("expires_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    lastLogin: timestamp("last_login"),
+    loginAttempts: integer("login_attempts").notNull().default(0),
+    lastLoginAttempt: timestamp("last_login_attempt"),
+  },
+  (table) => ({
     uniqueUsernamePerApp: index("unique_username_per_app").on(table.applicationId, table.username),
     uniqueEmailPerApp: index("unique_email_per_app").on(table.applicationId, table.email),
-  };
-});
+    uniqueApiKeyPerApp: index("unique_api_key_per_app").on(table.applicationId, table.apiKey), // Added index
+  }),
+);
 
 // Webhook configurations
 export const webhooks = pgTable("webhooks", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   url: text("url").notNull(),
-  secret: text("secret"), // For webhook signature verification
-  events: text("events").array().notNull().default([]), // Array of event types to listen for
+  secret: text("secret"),
+  events: text("events").array().notNull().default([]),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // Blacklist system
-export const blacklist = pgTable("blacklist", {
-  id: serial("id").primaryKey(),
-  applicationId: integer("application_id").references(() => applications.id, { onDelete: "cascade" }),
-  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
-  type: text("type").notNull(), // 'ip', 'hwid', 'username', 'email'
-  value: text("value").notNull(), // The actual value to blacklist
-  reason: text("reason"),
-  isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  createdBy: varchar("created_by").references(() => users.id),
-}, (table) => {
-  return {
+export const blacklist = pgTable(
+  "blacklist",
+  {
+    id: serial("id").primaryKey(),
+    applicationId: integer("application_id").references(() => applications.id, { onDelete: "cascade" }),
+    userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").notNull(), // 'ip', 'hwid', 'username', 'email'
+    value: text("value").notNull(),
+    reason: text("reason"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    createdBy: varchar("created_by").references(() => users.id),
+  },
+  (table) => ({
     uniqueBlacklistEntry: index("unique_blacklist_entry").on(table.applicationId, table.type, table.value),
-  };
-});
+  }),
+);
 
-// Activity logs for webhook events and tracking
-export const activityLogs = pgTable("activity_logs", {
-  id: serial("id").primaryKey(),
-  applicationId: integer("application_id").references(() => applications.id, { onDelete: "cascade" }),
-  appUserId: integer("app_user_id").references(() => appUsers.id, { onDelete: "cascade" }),
-  event: text("event").notNull(), // 'login', 'register', 'login_failed', 'logout', etc.
-  ipAddress: text("ip_address"),
-  hwid: text("hwid"),
-  userAgent: text("user_agent"),
-  metadata: jsonb("metadata"), // Additional event data
-  success: boolean("success").notNull().default(true),
-  errorMessage: text("error_message"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-}, (table) => {
-  return {
+// Activity logs
+export const activityLogs = pgTable(
+  "activity_logs",
+  {
+    id: serial("id").primaryKey(),
+    applicationId: integer("application_id").references(() => applications.id, { onDelete: "cascade" }),
+    appUserId: integer("app_user_id").references(() => appUsers.id, { onDelete: "cascade" }),
+    event: text("event").notNull(),
+    ipAddress: text("ip_address"),
+    hwid: text("hwid"),
+    userAgent: text("user_agent"),
+    metadata: jsonb("metadata"),
+    success: boolean("success").notNull().default(true),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => ({
     activityLogsByApp: index("activity_logs_by_app").on(table.applicationId, table.createdAt),
     activityLogsByUser: index("activity_logs_by_user").on(table.appUserId, table.createdAt),
-  };
-});
+  }),
+);
 
-// Real-time sessions tracking
-export const activeSessions = pgTable("active_sessions", {
-  id: serial("id").primaryKey(),
-  applicationId: integer("application_id").notNull().references(() => applications.id, { onDelete: "cascade" }),
-  appUserId: integer("app_user_id").notNull().references(() => appUsers.id, { onDelete: "cascade" }),
-  sessionToken: text("session_token").notNull().unique(),
-  ipAddress: text("ip_address"),
-  hwid: text("hwid"),
-  userAgent: text("user_agent"),
-  location: text("location"), // Geolocation info
-  isActive: boolean("is_active").notNull().default(true),
-  lastActivity: timestamp("last_activity").notNull().defaultNow(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  expiresAt: timestamp("expires_at"),
-}, (table) => {
-  return {
+// Active sessions tracking
+export const activeSessions = pgTable(
+  "active_sessions",
+  {
+    id: serial("id").primaryKey(),
+    applicationId: integer("application_id").notNull().references(() => applications.id, { onDelete: "cascade" }),
+    appUserId: integer("app_user_id").notNull().references(() => appUsers.id, { onDelete: "cascade" }),
+    sessionToken: text("session_token").notNull().unique(),
+    ipAddress: text("ip_address"),
+    hwid: text("hwid"),
+    userAgent: text("user_agent"),
+    location: text("location"),
+    isActive: boolean("is_active").notNull().default(true),
+    lastActivity: timestamp("last_activity").notNull().defaultNow(),
+    expiresAt: timestamp("expires_at"),
+  },
+  (table) => ({
     activeSessionsByApp: index("active_sessions_by_app").on(table.applicationId, table.isActive),
     activeSessionsByUser: index("active_sessions_by_user").on(table.appUserId, table.isActive),
-  };
-});
+  }),
+);
 
+// Zod Schemas
 export const insertApplicationSchema = createInsertSchema(applications).pick({
   name: true,
   description: true,
@@ -163,50 +174,63 @@ export const insertApplicationSchema = createInsertSchema(applications).pick({
   hwidMismatchMessage: true,
 });
 
-export const insertAppUserSchema = createInsertSchema(appUsers).pick({
-  username: true,
-  password: true,
-  expiresAt: true,
-  hwid: true,
-}).extend({
-  email: z.union([z.string().email(), z.literal(""), z.null(), z.undefined()]).optional().transform(val => val === "" || val === undefined ? null : val),
-  expiresAt: z.string().optional().nullable(),
-  hwid: z.string().optional().nullable(),
-});
+export const insertAppUserSchema = createInsertSchema(appUsers)
+  .pick({
+    username: true,
+    password: true,
+    email: true,
+    apiKey: true, // Added
+    expiresAt: true,
+    hwid: true,
+  })
+  .extend({
+    email: z.union([z.string().email(), z.literal(""), z.null(), z.undefined()]).optional().transform((val) => val === "" || val === undefined ? null : val),
+    expiresAt: z.string().optional().nullable(),
+    hwid: z.string().optional().nullable(),
+    apiKey: z.string().min(1, "API key is required"), // Added validation
+  });
 
-export const updateApplicationSchema = createInsertSchema(applications).pick({
-  name: true,
-  description: true,
-  version: true,
-  isActive: true,
-  hwidLockEnabled: true,
-  loginSuccessMessage: true,
-  loginFailedMessage: true,
-  accountDisabledMessage: true,
-  accountExpiredMessage: true,
-  versionMismatchMessage: true,
-  hwidMismatchMessage: true,
-}).partial();
+export const updateApplicationSchema = createInsertSchema(applications)
+  .pick({
+    name: true,
+    description: true,
+    version: true,
+    isActive: true,
+    hwidLockEnabled: true,
+    loginSuccessMessage: true,
+    loginFailedMessage: true,
+    accountDisabledMessage: true,
+    accountExpiredMessage: true,
+    versionMismatchMessage: true,
+    hwidMismatchMessage: true,
+  })
+  .partial();
 
-export const updateAppUserSchema = createInsertSchema(appUsers).pick({
-  username: true,
-  password: true,
-  email: true,
-  isActive: true,
-  isPaused: true,
-  hwid: true,
-  expiresAt: true,
-  lastLogin: true,
-  loginAttempts: true,
-  lastLoginAttempt: true,
-}).partial().extend({
-  hwid: z.string().optional().nullable(),
-  expiresAt: z.string().optional().nullable(),
-});
+export const updateAppUserSchema = createInsertSchema(appUsers)
+  .pick({
+    username: true,
+    password: true,
+    email: true,
+    apiKey: true, // Added
+    isActive: true,
+    isPaused: true,
+    hwid: true,
+    expiresAt: true,
+    lastLogin: true,
+    loginAttempts: true,
+    lastLoginAttempt: true,
+  })
+  .partial()
+  .extend({
+    hwid: z.string().optional().nullable(),
+    expiresAt: z.string().optional().nullable(),
+    apiKey: z.string().optional(),
+  });
 
 export const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
+  api_key: z.string().min(1, "API key is required"), // Updated to match test-login.tsx
   version: z.string().optional(),
   hwid: z.string().optional(),
 });
@@ -224,18 +248,20 @@ export const insertBlacklistSchema = createInsertSchema(blacklist).pick({
   reason: true,
 });
 
-export const insertActivityLogSchema = createInsertSchema(activityLogs).pick({
-  applicationId: true,
-  appUserId: true,
-  event: true,
-  ipAddress: true,
-  hwid: true,
-  userAgent: true,
-  metadata: true,
-  errorMessage: true,
-}).extend({
-  success: z.boolean().optional(),
-});
+export const insertActivityLogSchema = createInsertSchema(activityLogs)
+  .pick({
+    applicationId: true,
+    appUserId: true,
+    event: true,
+    ipAddress: true,
+    hwid: true,
+    userAgent: true,
+    metadata: true,
+    errorMessage: true,
+  })
+  .extend({
+    success: z.boolean().optional(),
+  });
 
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -246,7 +272,6 @@ export type AppUser = typeof appUsers.$inferSelect;
 export type InsertAppUser = z.infer<typeof insertAppUserSchema>;
 export type UpdateAppUser = z.infer<typeof updateAppUserSchema>;
 export type LoginRequest = z.infer<typeof loginSchema>;
-
 export type Webhook = typeof webhooks.$inferSelect;
 export type InsertWebhook = z.infer<typeof insertWebhookSchema>;
 export type BlacklistEntry = typeof blacklist.$inferSelect;
